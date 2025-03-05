@@ -5,6 +5,8 @@
 #include <iostream>
 #include <memory>
 #include <string_view>
+#include <chrono>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 namespace common {
@@ -90,6 +92,8 @@ protected:
     }
 
 private:
+    static std::mutex m_loggerMtxLock; // ensure timestamp consistency
+
     std::shared_ptr<spdlog::logger> m_stdout_logger{nullptr};
     std::shared_ptr<spdlog::logger> m_file_logger{nullptr};
     std::shared_ptr<spdlog::logger> m_async_file_logger{nullptr};

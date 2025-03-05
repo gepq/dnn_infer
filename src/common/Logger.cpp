@@ -2,17 +2,14 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/async.h>
-#include <chrono>
-#include <mutex>
+
 
 namespace common {
-
-static std::mutex g_loggerMtxLock; // ensure timestamp consistency
 
 Logger::Logger(const std::string& logger_id, const std::string& log_file_path, const std::string& async_log_file_path){
     
     {
-        std::lock_guard<std::mutex> lock(g_loggerMtxLock);
+        std::lock_guard<std::mutex> lock(m_loggerMtxLock);
         auto ts = std::chrono::system_clock::now().time_since_epoch().count();
         auto logger_name = logger_id + "_" + std::to_string(ts);
         m_stdout_logger = spdlog::stdout_color_mt(logger_name);
