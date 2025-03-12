@@ -54,7 +54,7 @@ public:
 
     virtual ~IDnnEngine() = default;
 
-private:
+protected:
     IDnnEngine() = default;
 };
 

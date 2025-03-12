@@ -30,7 +30,7 @@ public:
     Logger& operator=(const Logger&) = delete;
     Logger& operator=(Logger&&) = delete;
 
-    void setLoggersPrintLevel(Loglevel stdout_level, Loglevel file_level, Loglevel async_file_level){
+    void setLoggersPrintLevel(LogLevel stdout_level, LogLevel file_level, LogLevel async_file_level){
         auto spd_level = static_cast<spdlog::level::level_enum>(stdout_level);
         m_stdout_logger->set_level(spd_level);
         spd_level = static_cast<spdlog::level::level_enum>(file_level);

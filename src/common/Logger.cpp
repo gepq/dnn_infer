@@ -22,7 +22,7 @@ Logger::Logger(const std::string& logger_id, const std::string& log_file_path, c
     }
 
     // Initialize the default output levels of each logger here
-    setLoggersPrintLevel(Loglevel::Debug, Loglevel::Info, Loglevel::Info);
+    setLoggersPrintLevel(LogLevel::Debug, LogLevel::Info, LogLevel::Info);
 
 }
 
