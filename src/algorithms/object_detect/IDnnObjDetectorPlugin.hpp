@@ -9,8 +9,10 @@
 
 namespace dnn_algorithm {
 
+using namespace dnn_engine;
+
 struct ObjDetectInput {
-    std::strng handleType{"opencv4"};
+    std::string handleType{"opencv4"};
     std::any imageHandle;
 };
 
@@ -55,14 +57,14 @@ public:
 };
 
 
-} // namespace 
+} // namespace dnn_algorithm
 
 
 #define CREATE_PLUGIN_INSTANCE(PLUGIN_CLASS) \
-    extern "C" dnn_algorithm::IDnnObjDetectorPlugin* create() {
+    extern "C" dnn_algorithm::IDnnObjDetectorPlugin* create() { \
         return new PLUGIN_CLASS(); \
     } \
-    extern "C" void destory(dnn_algorithm::IDnnObjDetectorPlugin* plugin) { \
+    extern "C" void destroy(dnn_algorithm::IDnnObjDetectorPlugin* plugin) { \
         delete plugin; \
     }
 
