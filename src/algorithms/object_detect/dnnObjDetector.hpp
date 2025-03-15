@@ -9,12 +9,10 @@
 #include <vector>
 
 
-
 namespace dnn_algorithm {
 
 using namespace common;
 using namespace dnn_engine;
-using namespace dnn_algorithm;
 
 class dnnObjDetector {
 public:
@@ -55,11 +53,7 @@ private:
 };
 
 
-
-
 } // namespace dnn_algorithm
-
-
 
 
 #endif // __DNN_OBJDETECTOR_HPP__

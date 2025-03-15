@@ -52,10 +52,10 @@ dnnObjDetector::~dnnObjDetector() {
             m_logger->printStdoutLog(Logger::LogLevel::Error, "Failed to load symbol destroy: {}", dlerror());
             // throw std::runtime_error(dlerror());
         }
-        else {
-            destroy(m_dnnPluginHandle.get()); // call the destory interface
-        }
-
+        /* When calling m_dnnPluginHandle.reset(), the current resources will be implicitly destroyed. */
+        // else {
+        //     destroy(m_dnnPluginHandle.get()); // call the destory interface
+        // }
         m_dnnPluginHandle.reset();
     }
 

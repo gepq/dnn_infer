@@ -6,6 +6,8 @@
 
 namespace common {
 
+std::mutex Logger::m_loggerMtxLock;
+
 Logger::Logger(const std::string& logger_id, const std::string& log_file_path, const std::string& async_log_file_path){
     
     {
