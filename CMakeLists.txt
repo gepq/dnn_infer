@@ -22,7 +22,7 @@ elseif(CMAKE_BUILD_TYPE MATCHES "NoOptimize")
 endif()
 
 add_subdirectory(src)
-# add_subdirectory(example)
+add_subdirectory(examples)
 
 add_custom_target(clean-all
     COMMAND ${CMAKE_BUILD_TOOL} clean
