@@ -59,7 +59,7 @@ int yolov5::preProcess(ObjDetectParams& params, ObjDetectInput& inputData, IDnnE
 int yolov5::postProcess(const std::string& labelTextPath, const ObjDetectParams& params,
         std::vector<IDnnEngine::dnnOutput>& inputData, std::vector<ObjDetectOutput>& outputData) {
     if (inputData.size() != YOLOV5_OUTPUT_BATCH || labelTextPath.empty()) {
-        throw std::invalid_argument("The size of inputData is not equal to RKNN_YOLOV5_OUTPUT_BATCH or labelTextPath is empty.");
+        throw std::invalid_argument("The size of inputData is not equal to YOLOV5_OUTPUT_BATCH or labelTextPath is empty.");
     }
 
     int ret = initLabelMap(labelTextPath);

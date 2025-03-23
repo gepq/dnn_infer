@@ -14,6 +14,8 @@ namespace dnn_engine {
 
 using namespace common;
 
+#define MODEL_WARM_UP_TIMES 10
+
 struct TensorrtBinding {
     size_t         size  = 1;
     size_t         dsize = 1;
@@ -28,10 +30,14 @@ struct TensorrtParams {
     int32_t m_model_size;
 
     int m_num_bindings;
-    int m_num_inputs  = 0;
-    int m_num_outputs = 0;
+    int m_num_inputs  = 0; // = m_input_bindings.size()
+    int m_num_outputs = 0; // = m_output_bindings.size()
     std::vector<TensorrtBinding> m_input_bindings;
     std::vector<TensorrtBinding> m_output_bindings;
+
+    // store inference result vector
+    std::vector<void*>   m_host_ptrs;   // point to CPU memory
+    std::vector<void*>   m_device_ptrs; // point to GPU memory
 
     std::shared_ptr<nvinfer1::ICudaEngine> m_cuda_engine;
     std::shared_ptr<nvinfer1::IRuntime> m_runtime;
@@ -114,6 +120,8 @@ public:
 private:
     std::shared_ptr<unsigned char> loadModelFile(const std::string& modelPath);
     std::shared_ptr<unsigned char> loadModelData(FILE* fp, size_t offset, size_t size);
+
+    void trt_make_pipe(bool warmup);
 
     inline int trt_datatype2size(const nvinfer1::DataType& dataType) {
         switch (dataType) {

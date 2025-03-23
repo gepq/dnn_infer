@@ -130,8 +130,6 @@ void tensorrt::loadModel(const std::string& modelPath) {
 #endif
 
         if (IsInput) {
-            m_params.m_num_inputs += 1;
-
 #ifdef TRT_10
             dims = m_params.m_engine->getProfileShape(name.c_str(), 0, nvinfer1::OptProfileSelector::kMAX);
             // set max opt shape
@@ -145,6 +143,8 @@ void tensorrt::loadModel(const std::string& modelPath) {
             binding.size = trt_get_size_by_dims(dims);
             binding.dims = dims;
             m_params.m_input_bindings.push_back(binding);
+
+            m_params.m_num_inputs += 1;
         }
         else {
 #ifdef TRT_10
@@ -162,6 +162,7 @@ void tensorrt::loadModel(const std::string& modelPath) {
 
 }
 
+// if kCHW4 is right?
 int tensorrt::getInputShape(dnnInputShape& shape) {
 
     // format refer to : https://docs.nvidia.com/deeplearning/tensorrt/api/c_api/namespacenvinfer1.html#ac3e115b1a2b1e578e8221ef99d27cd45
@@ -179,6 +180,145 @@ int tensorrt::getInputShape(dnnInputShape& shape) {
 }
 
 
+void tensorrt::trt_make_pipe(bool warmup) {
+    for (auto& bindings : m_params.m_inputs_bingdins) {
+        void* d_ptr;
+        auto error_code = cudaMallocAsync(&d_ptr, bindings.size * bindings.dsize, m_params.m_stream);
+        if (error_code != cudaSuccess) {
+            m_logger->printStdoutLog(Logger::LogLevel::Error, "cudaMallocAsync failure, error text: %s", cudaGetErrorString(error_code));
+        }
+        m_params.device_ptrs.push_back(d_ptr);
+
+#ifdef TRT_10
+        auto name = bindings.name.c_str();
+        m_params.m_context->setInputShape(name, bindings.dims);
+        m_params.m_context->setTensorAddress(name, d_ptr);
+#endif
+    }
+
+    for (auto& bindings : this->output_bindings) {
+        void *d_ptr, *h_ptr;
+        size_t size = bindings.size * bindings.dsize;
+
+        auto error_code = cudaMallocAsync(&d_ptr, size, m_params.m_stream);
+        if (error_code != cudaSuccess) {
+            m_logger->printStdoutLog(Logger::LogLevel::Error, "cudaMallocAsync failure, error text: %s", cudaGetErrorString(error_code));
+        }
+
+        error_code = cudaHostAlloc(&h_ptr, size, 0);
+        if (error_code != cudaSuccess) {
+            m_logger->printStdoutLog(Logger::LogLevel::Error, "cudaMallocAsync failure, error text: %s", cudaGetErrorString(error_code));
+        }
+
+        m_params.m_device_ptrs.push_back(d_ptr);
+        m_params.m_host_ptrs.push_back(h_ptr);
+
+#ifdef TRT_10
+        auto name = bindings.name.c_str();
+        m_params.m_context->setTensorAddress(name, d_ptr);
+#endif
+    }
+
+    if (warmup) {
+        for (int i = 0; i < MODEL_WARM_UP_TIMES; i++) {
+            for (auto& bindings : m_params.m_input_bindings) {
+                size_t size  = bindings.size * bindings.dsize;
+                void*  h_ptr = malloc(size);
+                memset(h_ptr, 0, size);
+                CHECK(cudaMemcpyAsync(m_params.m_device_ptrs[0], h_ptr, size, cudaMemcpyHostToDevice, m_params.m_stream));
+                free(h_ptr);
+            }
+            runInference();
+        }
+        m_logger->printStdoutLog(Logger::LogLevel::Debug, "model warmup %d times", MODEL_WARM_UP_TIMES);
+    }
+}
+
+
+// Currently only supports floating-point types
+int getOutputQuantParams(std::vector<int32_t>& zeroPoints, std::vector<float>& scales) {
+    return -1;
+}
+
+int pushInputData(dnnInput& inputData) {
+    if (inputData.size == 0) {
+        m_logger->printStdoutLog(BspLogger::LogLevel::Error, "inputData.buf is empty.");
+        return -1;
+    }
+
+    size_t inputSize = inputData.size;
+    auto error_code = cudaMemcpyAsync(m_params.m_device_ptrs[0], inputData.buf.data(), inputSize, cudaMemcpyHostToDevice, m_params.m_stream));
+    if (error_code != cudaSuccess) {
+        m_logger->printStdoutLog(Logger::LogLevel::Error, "cudaMemcpyAsync failure, error text: %s", cudaGetErrorString(error_code));
+    }
+
+#ifdef TRT_10
+    auto name = m_params.m_input_bindings[0].name.c_str();
+    m_params.m_context->setInputShape(name, nvinfer1::Dims{4, {1, inputData.shape.channel, inputData.shape.height, inputData.shape.width}});
+    m_params.m_context->setTensorAddress(name, m_params.m_device_ptrs[0]);
+#else
+    m_params.m_context->setBindingDimensions(0, nvinfer1::Dims{4, {1, inputData.shape.channel, inputData.shape.height, inputData.shape.width}});
+#endif
+
+    return 0;
+}
+
+int popOutputData(std::vector<dnnOutput>& outputVector) {
+    // if (m_params.m_outputs.size() != m_params.m_io_num.n_output) {
+    //     m_params.m_outputs.resize(m_params.m_io_num.n_output);
+    //     for (int i = 0; i < m_params.m_io_num.n_output; i++) {
+    //         std::memset(&m_params.m_outputs[i], 0, sizeof(rknn_output));
+    //         m_params.m_outputs[i].index = i;
+    //         m_params.m_outputs[i].want_float = 0;
+    //     }
+    // }
+
+    // if (outputVector.size() != m_params.m_io_num.n_output) {
+    //     outputVector.resize(m_params.m_io_num.n_output);
+    // }
+
+    // // Get Output
+    // int ret = rknn_outputs_get(m_params.m_rknnCtx, m_params.m_io_num.n_output,
+    //                 m_params.m_outputs.data(), nullptr);
+
+    // for (int i = 0; i < m_params.m_io_num.n_output; i++) {
+    //     outputVector[i].index = m_params.m_outputs[i].index;
+    //     outputVector[i].buf = m_params.m_outputs[i].buf;
+    //     outputVector[i].size = m_params.m_outputs[i].size;
+    //     outputVector[i].dataType = m_params.m_outputs[i].want_float ? "float32" : "int8";
+    // }
+    
+    // return ret;
+
+
+    for (int i = 0; i < m_params.m_num_outputs; i++) {
+        outputVector[i].index = i;
+        outputVector[i].buf = m_params.m_host_ptrs[i];
+        outputVector[i].size = m_params.m_output_bindings[i].size;
+        outputVector[i].dataType = "float32";
+    }
+
+    return 0;
+}
+
+
+int tensorrt::runInference() {
+#ifdef TRT_10
+    m_params.m_context->enqueueV3(m_params.m_stream);
+#else
+    m_params.m_context->enqueueV2(m_params.m_device_ptrs.data(), m_params.m_stream, nullptr);
+#endif
+    for (int i = 0; i < m_params.m_num_outputs; i++) {
+        size_t osize = m_params.m_output_bindings[i].size * m_params.m_output_bindings[i].dsize;
+        auto error_code = cudaMemcpyAsync(m_params.m_host_ptrs[i], m_params.m_device_ptrs[i + m_params.m_num_inputs], osize, cudaMemcpyDeviceToHost, m_params.m_stream);
+        if (error_code != cudaSuccess) {
+            m_logger->printStdoutLog(Logger::LogLevel::Error, "cudaMemcpyAsync failure, error text: %s", cudaGetErrorString(error_code));
+        }
+    }
+    cudaStreamSynchronize(m_params.m_stream);
+
+    return 0;
+}
 
 
 } // namespace dnn_engine
